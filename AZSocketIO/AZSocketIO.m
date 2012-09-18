@@ -280,6 +280,9 @@
     [self.specificEventBlocks removeObjectForKey:name];
     return [callbacks count];
 }
+- (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
+    [self.httpClient setDefaultHeader:field value:value];
+}
 #pragma mark heartbeat
 - (void)clearHeartbeatTimeout
 {

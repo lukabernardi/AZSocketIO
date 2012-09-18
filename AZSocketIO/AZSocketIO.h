@@ -196,6 +196,18 @@ typedef enum {
  */
 - (NSInteger)removeCallbacksForEvent:(NSString *)name;
 
+/*!
+ @method setValue:forHTTPHeaderField:
+ @abstract Sets the value of the given HTTP header field.
+ @discussion If a value was previously set for the given header
+ field, that value is replaced with the given value. Note that, in
+ keeping with the HTTP RFC, HTTP header field names are
+ case-insensitive.
+ @param value the header field value.
+ @param field the header field name (case-insensitive).
+ */
+- (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field;
+
 ///-------------------------------------
 /// @name Reconnecting
 ///-------------------------------------
