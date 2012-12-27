@@ -29,7 +29,7 @@
 
 @interface AZSocketIO ()
 @property(nonatomic, strong, readwrite)NSString *host;
-@property(nonatomic, strong, readwrite)NSString *port;
+@property(nonatomic, strong, readwrite)NSUInteger port;
 @property(nonatomic, assign, readwrite)BOOL secureConnections;
 
 @property(nonatomic, strong)NSOperationQueue *queue;
@@ -61,7 +61,7 @@
 {
     NSLog(@"Socket");
 }
-- (id)initWithHost:(NSString *)host andPort:(NSString *)port secure:(BOOL)secureConnections
+- (id)initWithHost:(NSString *)host andPort:(NSUInteger)port secure:(BOOL)secureConnections
 {
     self = [super init];
     if (self) {
@@ -70,7 +70,7 @@
         self.secureConnections = secureConnections;
         
         NSString *protocolString = self.secureConnections ? @"https://" : @"http://";
-        NSString *urlString = [NSString stringWithFormat:@"%@%@:%@", protocolString,
+        NSString *urlString = [NSString stringWithFormat:@"%@%@:%d", protocolString,
                                self.host, self.port];
         
         self.httpClient = [[AFHTTPClient alloc] initWithBaseURL:[NSURL URLWithString:urlString]];
