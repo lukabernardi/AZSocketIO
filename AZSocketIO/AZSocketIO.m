@@ -340,7 +340,7 @@
 {
     [self startHeartbeatTimeout];
     AZSocketIOPacket *packet = [[AZSocketIOPacket alloc] initWithString:message];
-    id outData; AZSocketIOACKMessage *ackMessage; ACKCallback callback; NSArray *callbackList;
+    AZSocketIOACKMessage *ackMessage; ACKCallback callback;
     switch (packet.type) {
         case DISCONNECT:
             [self disconnect];
@@ -356,20 +356,23 @@
             self.messageRecievedBlock(packet.data);
             break;
         case JSON_MESSAGE:
-            outData = [NSJSONSerialization JSONObjectWithData:[packet.data dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
-            self.messageRecievedBlock(outData);
+        {
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                id outData = [NSJSONSerialization JSONObjectWithData:[packet.data dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+                [self performSelectorOnMainThread:@selector(didParseJSONMessage:)
+                                       withObject:outData waitUntilDone:NO];
+            });
             break;
+        }
         case EVENT:
-            outData = [NSJSONSerialization JSONObjectWithData:[packet.data dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
-            callbackList = [self.specificEventBlocks objectForKey:[outData objectForKey:@"name"]];
-            if (callbackList != nil) {
-                for (EventRecievedBlock block in callbackList) {
-                    block([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
-                }
-            } else {
-                self.eventRecievedBlock([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
-            }
+        {
+            dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                id outData = [NSJSONSerialization JSONObjectWithData:[packet.data dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+                [self performSelectorOnMainThread:@selector(didParseJSONEvent:)
+                                       withObject:outData waitUntilDone:NO];
+            });
             break;
+        }
         case ACK:
             ackMessage = [[AZSocketIOACKMessage alloc] initWithPacket:packet];
             callback = [self.ackCallbacks objectForKey:ackMessage.messageId];
@@ -395,6 +398,23 @@
             break;
         default:
             break;
+    }
+}
+
+- (void)didParseJSONMessage:(id)outData
+{
+    self.messageRecievedBlock(outData);
+}
+
+- (void)didParseJSONEvent:(id)outData
+{
+    NSArray *callbackList = [self.specificEventBlocks objectForKey:[outData objectForKey:@"name"]];
+    if (callbackList != nil) {
+        for (EventRecievedBlock block in callbackList) {
+            block([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
+        }
+    } else {
+        self.eventRecievedBlock([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
     }
 }
 
