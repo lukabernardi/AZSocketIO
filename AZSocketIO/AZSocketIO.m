@@ -84,7 +84,7 @@
         self.reconnectionDelay = .5;
         self.reconnectionLimit = MAXFLOAT;
         self.maxReconnectionAttempts = 10;
-        self.state = az_socket_not_connected;
+        self.state = AZSocketIOStateDisconnected;
     }
     return self;
 }
@@ -98,7 +98,7 @@
 #pragma mark connection management
 - (void)connectWithSuccess:(ConnectedBlock)success andFailure:(ErrorBlock)failure
 {
-    self.state = az_socket_connecting;
+    self.state = AZSocketIOStateConnecting;
     self.connectionBlock = success;
     self.errorBlock = failure;
     NSString *urlString = [NSString stringWithFormat:@"socket.io/%@", PROTOCOL_VERSION];
@@ -120,7 +120,7 @@
                          self.currentReconnectDelay = self.reconnectionDelay;
                          [self connect];
                      } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-                         self.state = az_socket_not_connected;
+                         self.state = AZSocketIOStateDisconnected;
                          if (![self reconnect]) {
                              failure(error);
                          }
@@ -158,13 +158,13 @@
 - (void)disconnect
 {
     [self clearHeartbeatTimeout];
-    self.state = az_socket_not_connected;
+    self.state = AZSocketIOStateDisconnecting;
     [self.transport disconnect];
 }
 
 - (BOOL)reconnect
 {
-    if (self.shouldReconnect && self.state == az_socket_not_connected) {
+    if (self.shouldReconnect && self.state == AZSocketIOStateDisconnected) {
         NSString *transportName = [[self.transportMap allKeysForObject:[self.transport class]] lastObject];
         self.availableTransports = [self.availableTransports filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(id evaluatedObject, NSDictionary *bindings) {
             return ![transportName isEqualToString:evaluatedObject] && [self.transports containsObject:evaluatedObject];
@@ -409,13 +409,13 @@
 
 - (void)didOpen
 {
-    self.state = az_socket_connected;
+    self.state = AZSocketIOStateConnected;
     self.connectionAttempts = 0;
 }
 
 - (void)didClose
 {
-    self.state = az_socket_not_connected;
+    self.state = AZSocketIOStateDisconnected;
     [self.queue setSuspended:YES];
     if (self.disconnectedBlock) {
         self.disconnectedBlock();
@@ -424,7 +424,7 @@
 
 - (void)didFailWithError:(NSError *)error
 {
-    self.state = az_socket_not_connected;
+    self.state = AZSocketIOStateDisconnected;
     [self.queue setSuspended:YES];
     if (![self reconnect] && self.errorBlock) {
         self.errorBlock(error);
