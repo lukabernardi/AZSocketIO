@@ -27,10 +27,13 @@
 
 #define PROTOCOL_VERSION @"1"
 
+NSString * const AZSocketIODefaultNamespace = @"";
+
 @interface AZSocketIO ()
 @property(nonatomic, strong, readwrite)NSString *host;
 @property(nonatomic, strong, readwrite)NSString *port;
 @property(nonatomic, assign, readwrite)BOOL secureConnections;
+@property(nonatomic, copy, readwrite)NSString *endpoint;
 
 @property(nonatomic, strong)NSOperationQueue *queue;
 
@@ -57,20 +60,34 @@
 @end
 
 @implementation AZSocketIO
+
 - (id)initWithHost:(NSString *)host andPort:(NSString *)port secure:(BOOL)secureConnections
 {
+    return [self initWithHost:host
+                      andPort:port
+                       secure:secureConnections
+                withNamespace:AZSocketIODefaultNamespace];
+}
+
+- (id)initWithHost:(NSString *)host andPort:(NSString *)port secure:(BOOL)secureConnections withNamespace:(NSString *)endpoint
+{
+    NSParameterAssert(host);
+    NSParameterAssert(port);
+    NSParameterAssert(endpoint);
+    
     self = [super init];
     if (self) {
         self.host = host;
         self.port = port;
         self.secureConnections = secureConnections;
+        self.endpoint = endpoint;
         
         NSString *protocolString = self.secureConnections ? @"https://" : @"http://";
         NSString *urlString = [NSString stringWithFormat:@"%@%@:%@", protocolString,
                                self.host, self.port];
         
         self.httpClient = [[AFHTTPClient alloc] initWithBaseURL:[NSURL URLWithString:urlString]];
-        self.ackCallbacks = [NSMutableDictionary dictionary];       
+        self.ackCallbacks = [NSMutableDictionary dictionary];
         self.ackCount = 0;
         self.specificEventBlocks = [NSMutableDictionary new];
         
@@ -235,6 +252,14 @@
     return [self send:data error:error ack:NULL];
 }
 
+- (void)sendExplicitConnectMessage
+{
+    AZSocketIOPacket *connectPacket = [[AZSocketIOPacket alloc] init];
+    connectPacket.type = CONNECT;
+    connectPacket.endpoint = self.endpoint;
+    [self.transport send:[connectPacket encode]];
+}
+
 - (BOOL)emit:(NSString *)name args:(id)args error:(NSError *__autoreleasing *)error ack:(ACKCallback)callback
 {
     return [self emit:name args:args error:error ack:callback argCount:0];
@@ -285,6 +310,7 @@
 
 - (BOOL)sendPacket:(AZSocketIOPacket *)packet error:(NSError * __autoreleasing *)error
 {
+    packet.endpoint = self.endpoint;
     [self.queue addOperation:[NSBlockOperation blockOperationWithBlock:^{
         [self.transport send:[packet encode]];
     }]];
@@ -335,11 +361,13 @@
 }
 
 #pragma mark heartbeat
+
 - (void)clearHeartbeatTimeout
 {
     [self.heartbeatTimer invalidate];
     self.heartbeatTimer = nil;
 }
+
 - (void)startHeartbeatTimeout
 {
     [self clearHeartbeatTimeout];
@@ -354,7 +382,10 @@
     [self disconnect];
     [self reconnect];
 }
+
+
 #pragma mark AZSocketIOTransportDelegate
+
 - (void)didReceiveMessage:(NSString *)message
 {
     [self startHeartbeatTimeout];
@@ -365,9 +396,19 @@
             [self disconnect];
             break;
         case CONNECT:
+        {
+            if (self.endpoint) {
+                NSString *receivedEndpoint = packet.endpoint;
+                if (![receivedEndpoint isEqualToString:self.endpoint]) {
+                    [self sendExplicitConnectMessage];
+                    return;
+                }
+            }
+            
             self.connectionBlock();
             [self.queue setSuspended:NO];
             break;
+        }
         case HEARTBEAT:
             [self.transport send:message];
             break;
@@ -422,27 +463,6 @@
     }
 }
 
-- (void)didParseJSONMessage:(id)outData
-{
-    if (self.messageRecievedBlock) {
-        self.messageRecievedBlock(outData);
-    }
-}
-
-- (void)didParseJSONEvent:(id)outData
-{
-    NSArray *callbackList = [self.specificEventBlocks objectForKey:[outData objectForKey:@"name"]];
-    if (callbackList != nil) {
-        for (EventRecievedBlock block in callbackList) {
-            block([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
-        }
-    } else {
-        if (self.eventRecievedBlock) {
-            self.eventRecievedBlock([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
-        }
-    }
-}
-
 - (void)didOpen
 {
     self.state = AZSocketIOStateConnected;
@@ -466,4 +486,28 @@
         self.errorBlock(error);
     }
 }
+
+#pragma mark - Parse response
+
+- (void)didParseJSONMessage:(id)outData
+{
+    if (self.messageRecievedBlock) {
+        self.messageRecievedBlock(outData);
+    }
+}
+
+- (void)didParseJSONEvent:(id)outData
+{
+    NSArray *callbackList = [self.specificEventBlocks objectForKey:[outData objectForKey:@"name"]];
+    if (callbackList != nil) {
+        for (EventRecievedBlock block in callbackList) {
+            block([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
+        }
+    } else {
+        if (self.eventRecievedBlock) {
+            self.eventRecievedBlock([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
+        }
+    }
+}
+
 @end

@@ -25,6 +25,8 @@
 
 #define AZDOMAIN @"AZSocketIO"
 
+extern NSString * const AZSocketIODefaultNamespace;
+
 typedef void (^MessageRecievedBlock)(id data);
 typedef void (^EventRecievedBlock)(NSString *eventName, id data);
 typedef void (^ConnectedBlock)();
@@ -66,6 +68,10 @@ NS_ENUM(NSUInteger, AZSocketIOError) {
  */
 @property(nonatomic, assign, readonly)BOOL secureConnections;
 /**
+ The namespace / endpoint of the socket.io server
+ */
+@property(nonatomic, copy, readonly)NSString *endpoint;
+/**
  Contains the current state of the connection.
  
  @warning This property may conflict with the state of the transport during state changes.
@@ -104,8 +110,6 @@ NS_ENUM(NSUInteger, AZSocketIOError) {
 /**
  Initializes an `AZSocketIO` object with the specified host and port.
  
- This is the designated initializer. It will not create a connection to the server.
- 
  @param host The hostname of socket.io server.
  @param port The port the socket.io server is running on.
  @param secureConnections Determines whether SSL encryption is used when possible
@@ -113,7 +117,19 @@ NS_ENUM(NSUInteger, AZSocketIOError) {
  @return the initialized client
  */
 - (id)initWithHost:(NSString *)host andPort:(NSString *)port secure:(BOOL)secureConnections;
-
+/**
+ Initializes an `AZSocketIO` object with the specified host, port and namespace.
+ 
+ This is the designated initializer. It will not create a connection to the server.
+ 
+ @param host The hostname of socket.io server.
+ @param port The port the socket.io server is running on.
+ @param secureConnections Determines whether SSL encryption is used when possible
+ @param endpoint The endpoint namespace
+ 
+ @return the initialized client
+ */
+- (id)initWithHost:(NSString *)host andPort:(NSString *)port secure:(BOOL)secureConnections withNamespace:(NSString *)endpoint;
 /**
  Connects to the socket.io server.
  
