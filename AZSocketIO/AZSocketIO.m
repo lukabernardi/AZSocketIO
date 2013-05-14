@@ -83,8 +83,10 @@ NSString * const AZSocketIODefaultNamespace = @"";
         self.endpoint = endpoint;
         
         NSString *protocolString = self.secureConnections ? @"https://" : @"http://";
-        NSString *urlString = [NSString stringWithFormat:@"%@%@:%@", protocolString,
-                               self.host, self.port];
+        NSString *urlString = [NSString stringWithFormat:@"%@%@", protocolString, self.host];
+		if (self.port) {
+			urlString = [urlString stringByAppendingFormat:@":%@", self.port];
+		}
         
         self.httpClient = [[AFHTTPClient alloc] initWithBaseURL:[NSURL URLWithString:urlString]];
         self.ackCallbacks = [NSMutableDictionary dictionary];
