@@ -35,7 +35,7 @@ describe(@"The socket", ^{
             [error shouldBeNil];
         });
         it(@"should say it's not connected", ^{
-            [[theValue(socket.state) should] equal:@(az_socket_not_connected)];
+            [[theValue(socket.state) should] equal:@(AZSocketIOStateDisconnected)];
         });
     });
     context(@"when connecting", ^{
@@ -56,7 +56,7 @@ describe(@"The socket", ^{
             [[expectFutureValue(args) shouldEventually] beNonNil];
         });
         it(@"should say it's connected", ^{
-            [[theValue(socket.state) should] equal:@(az_socket_connected)];
+            [[theValue(socket.state) should] equal:@(AZSocketIOStateConnected)];
         });
     });
     context(@"after connecting", ^{
@@ -91,6 +91,18 @@ describe(@"The socket", ^{
             [[expectFutureValue(recievedName) shouldEventually] equal:name];
             [[expectFutureValue(recievedArgs) shouldEventually] equal:args];
         });
+        it(@"can add and retrive and event callback", ^{
+            NSString *eventName = @"testEvent";
+            [socket addCallbackForEventName:eventName
+                                   callback:^(NSString *eventName, id data) {
+                                       
+                                   }];
+            
+            NSArray *callbacks = [socket callbacksForEvent:eventName];
+            [callbacks shouldNotBeNil];
+            [[callbacks should] beKindOfClass:[NSArray class]];
+            [[theValue(callbacks.count) should] equal:theValue(1)];
+        });
         it(@"can register an ack callback", ^{
             __block NSString *name;
             [socket emit:@"ackWithArg" args:@"kthx"
@@ -121,6 +133,13 @@ describe(@"The socket", ^{
             [[expectFutureValue(one) shouldEventually] equal:@"one"];
             [[expectFutureValue(two) shouldEventually] equal:@"two"];
         });
+        // https://github.com/pashields/AZSocketIO/issues/10
+        it(@"should be able to emit with nil args", ^{
+            [socket emit:@"foobar"
+                    args:nil
+                   error:nil
+                     ack:nil];
+        });
     });
     context(@"when disconnecting", ^{
         it(@"can disconnect", ^{
@@ -134,7 +153,7 @@ describe(@"The socket", ^{
     });
     context(@"after disconnecting", ^{
         it(@"should say it's not connected", ^{
-            [[theValue(socket.state) should] equal:@(az_socket_not_connected)];
+            [[theValue(socket.state) should] equal:@(AZSocketIOStateDisconnected)];
         });
         __block NSString *sent = @"Hi", *recieved;
         it(@"can still queue messages", ^{

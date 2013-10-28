@@ -33,12 +33,17 @@ AZSocketIO *socket = [[AZSocketIO alloc] initWithHost:@"localhost" andPort:@"900
 }];
 ```
 
-Contact
+Author
 -------
 Pat Shields
 
 * http://github.com/pashields
 * http://twitter.com/whatidoissecret
+
+Contributors
+------------
+* Luca Bernardi (https://github.com/lukabernardi)
+* Oli Kingshott (https://github.com/oliland)
 
 License
 -------

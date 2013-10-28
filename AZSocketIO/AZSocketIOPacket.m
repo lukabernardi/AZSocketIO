@@ -32,9 +32,19 @@
 @synthesize endpoint;
 @synthesize data;
 
-- (id)initWithString:(NSString *)packetString
+- (id)init
 {
     self = [super init];
+    if (self) {
+        self.data = @"";
+        self.endpoint = @"";
+    }
+    return self;
+}
+
+- (id)initWithString:(NSString *)packetString
+{
+    self = [self init];
     if (self) {
         NSTextCheckingResult *result = [[AZSocketIOPacket regex] firstMatchInString:packetString
                                                                             options:0 
@@ -68,7 +78,10 @@
         idString = @"";
     }
     
-    return [NSString stringWithFormat:@"%d:%@::%@", self.type, idString, self.data];
+    // Message encoding format (https://github.com/LearnBoost/socket.io-spec#encoding) 
+    // [message type] ':' [message id ('+')] ':' [message endpoint] (':' [message data])
+    NSString *encodedString = [NSString stringWithFormat:@"%d:%@:%@:%@", self.type, idString, self.endpoint, self.data];
+    return encodedString;
 }
 
 - (NSString *)description

@@ -26,10 +26,13 @@
 
 #define PROTOCOL_VERSION @"1"
 
+NSString * const AZSocketIODefaultNamespace = @"";
+
 @interface AZSocketIO ()
 @property(nonatomic, strong, readwrite)NSString *host;
 @property(nonatomic, strong, readwrite)NSString *port;
 @property(nonatomic, assign, readwrite)BOOL secureConnections;
+@property(nonatomic, copy, readwrite)NSString *endpoint;
 
 @property(nonatomic, strong)NSOperationQueue *queue;
 
@@ -57,13 +60,27 @@
 @end
 
 @implementation AZSocketIO
+
 - (id)initWithHost:(NSString *)host andPort:(NSString *)port secure:(BOOL)secureConnections
 {
+    return [self initWithHost:host
+                      andPort:port
+                       secure:secureConnections
+                withNamespace:AZSocketIODefaultNamespace];
+}
+
+- (id)initWithHost:(NSString *)host andPort:(NSString *)port secure:(BOOL)secureConnections withNamespace:(NSString *)endpoint
+{
+    NSParameterAssert(host);
+    NSParameterAssert(port);
+    NSParameterAssert(endpoint);
+    
     self = [super init];
     if (self) {
         self.host = host;
         self.port = port;
         self.secureConnections = secureConnections;
+        self.endpoint = endpoint;
         
         NSString *protocolString = self.secureConnections ? @"https://" : @"http://";
         NSString *urlString = [NSString stringWithFormat:@"%@%@:%@", protocolString,
@@ -73,7 +90,7 @@
         NSURL *connectionURL = [baseURL URLByAppendingPathComponent:[NSString stringWithFormat:@"socket.io/%@", PROTOCOL_VERSION]];
         
         self.connectionURLRequest = [NSMutableURLRequest requestWithURL:connectionURL cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:3.0f];
-        
+
         self.ackCallbacks = [NSMutableDictionary dictionary];
         self.ackCount = 0;
         self.specificEventBlocks = [NSMutableDictionary new];
@@ -88,7 +105,7 @@
         self.reconnectionDelay = .5;
         self.reconnectionLimit = MAXFLOAT;
         self.maxReconnectionAttempts = 10;
-        self.state = az_socket_not_connected;
+        self.state = AZSocketIOStateDisconnected;
     }
     return self;
 }
@@ -102,13 +119,13 @@
 #pragma mark connection management
 - (void)connectWithSuccess:(ConnectedBlock)success andFailure:(ErrorBlock)failure
 {
-    self.state = az_socket_connecting;
+    self.state = AZSocketIOStateConnecting;
     self.connectionBlock = success;
     self.errorBlock = failure;
     
     [NSURLConnection sendAsynchronousRequest:self.connectionURLRequest queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
         if (connectionError) {
-            self.state = az_socket_not_connected;
+            self.state = AZSocketIOStateDisconnected;
             if (![self reconnect]) {
                 failure(connectionError);
             }
@@ -143,7 +160,7 @@
     
     NSMutableDictionary *errorDetail = [NSMutableDictionary dictionary];
     [errorDetail setValue:@"None of the available transports are recognized by this server" forKey:NSLocalizedDescriptionKey];
-    NSError *error = [NSError errorWithDomain:AZDOMAIN code:100 userInfo:errorDetail];
+    NSError *error = [NSError errorWithDomain:AZDOMAIN code:AZSocketIOErrorConnection userInfo:errorDetail];
     self.errorBlock(error);
 }
 
@@ -162,13 +179,13 @@
 - (void)disconnect
 {
     [self clearHeartbeatTimeout];
-    self.state = az_socket_not_connected;
+    self.state = AZSocketIOStateDisconnecting;
     [self.transport disconnect];
 }
 
 - (BOOL)reconnect
 {
-    if (self.shouldReconnect && self.state == az_socket_not_connected) {
+    if (self.shouldReconnect && self.state == AZSocketIOStateDisconnected) {
         NSString *transportName = [[self.transportMap allKeysForObject:[self.transport class]] lastObject];
         self.availableTransports = [self.availableTransports filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(id evaluatedObject, NSDictionary *bindings) {
             return ![transportName isEqualToString:evaluatedObject] && [self.transports containsObject:evaluatedObject];
@@ -239,6 +256,14 @@
     return [self send:data error:error ack:NULL];
 }
 
+- (void)sendExplicitConnectMessage
+{
+    AZSocketIOPacket *connectPacket = [[AZSocketIOPacket alloc] init];
+    connectPacket.type = CONNECT;
+    connectPacket.endpoint = self.endpoint;
+    [self.transport send:[connectPacket encode]];
+}
+
 - (BOOL)emit:(NSString *)name args:(id)args error:(NSError *__autoreleasing *)error ack:(ACKCallback)callback
 {
     return [self emit:name args:args error:error ack:callback argCount:0];
@@ -254,7 +279,22 @@
     AZSocketIOPacket *packet = [[AZSocketIOPacket alloc] init];
     packet.type = EVENT;
     
-    NSMutableDictionary *data = [NSMutableDictionary dictionaryWithObjectsAndKeys:name, @"name", args, @"args", nil];
+    NSDictionary *data = nil;
+    
+    if (args) {
+        data = @{ @"name" : name, @"args" : args};
+    } else {
+        data = @{ @"name" : name};
+    }
+    
+    if (![NSJSONSerialization isValidJSONObject:data]) {
+        if (error) {
+            NSDictionary *userInfo = @{NSLocalizedDescriptionKey: @"The provided args can't be converted to JSON"};
+            *error = [NSError errorWithDomain:AZDOMAIN code:AZSocketIOErrorArgs userInfo:userInfo];
+        }
+        return NO;
+    }
+    
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:data options:0 error:error];
     if (jsonData == nil) {
         return NO;
@@ -280,6 +320,7 @@
 
 - (BOOL)sendPacket:(AZSocketIOPacket *)packet error:(NSError * __autoreleasing *)error
 {
+    packet.endpoint = self.endpoint;
     [self.queue addOperation:[NSBlockOperation blockOperationWithBlock:^{
         [self.transport send:[packet encode]];
     }]];
@@ -287,6 +328,7 @@
 }
 
 #pragma mark event callback registration
+
 - (void)addCallbackForEventName:(NSString *)name callback:(EventRecievedBlock)block
 {
     NSMutableArray *callbacks = [self.specificEventBlocks objectForKey:name];
@@ -296,6 +338,7 @@
     }
     [callbacks addObject:block];
 }
+
 - (BOOL)removeCallbackForEvent:(NSString *)name callback:(EventRecievedBlock)block
 {
     NSMutableArray *callbacks = [self.specificEventBlocks objectForKey:name];
@@ -310,21 +353,31 @@
     }
     return NO;
 }
+
 - (NSInteger)removeCallbacksForEvent:(NSString *)name
 {
     NSMutableArray *callbacks = [self.specificEventBlocks objectForKey:name];
     [self.specificEventBlocks removeObjectForKey:name];
     return [callbacks count];
 }
+
+- (NSArray *)callbacksForEvent:(NSString *)eventName
+{
+    return [[self.specificEventBlocks objectForKey:eventName] copy];
+}
+
 - (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
     [self.connectionURLRequest setValue:value forHTTPHeaderField:field];
- }
+}
+
 #pragma mark heartbeat
+
 - (void)clearHeartbeatTimeout
 {
     [self.heartbeatTimer invalidate];
     self.heartbeatTimer = nil;
 }
+
 - (void)startHeartbeatTimeout
 {
     [self clearHeartbeatTimeout];
@@ -339,7 +392,10 @@
     [self disconnect];
     [self reconnect];
 }
+
+
 #pragma mark AZSocketIOTransportDelegate
+
 - (void)didReceiveMessage:(NSString *)message
 {
     [self startHeartbeatTimeout];
@@ -350,14 +406,26 @@
             [self disconnect];
             break;
         case CONNECT:
+        {
+            if (self.endpoint) {
+                NSString *receivedEndpoint = packet.endpoint;
+                if (![receivedEndpoint isEqualToString:self.endpoint]) {
+                    [self sendExplicitConnectMessage];
+                    return;
+                }
+            }
+            
             self.connectionBlock();
             [self.queue setSuspended:NO];
             break;
+        }
         case HEARTBEAT:
             [self.transport send:message];
             break;
         case MESSAGE:
-            self.messageRecievedBlock(packet.data);
+            if (self.messageRecievedBlock) {
+                self.messageRecievedBlock(packet.data);
+            }
             break;
         case JSON_MESSAGE:
         {
@@ -395,7 +463,7 @@
                 if (self.errorBlock) {
                     NSMutableDictionary *errorDetail = [NSMutableDictionary dictionary];
                     [errorDetail setValue:packet.data forKey:NSLocalizedDescriptionKey];
-                    NSError *error = [NSError errorWithDomain:AZDOMAIN code:100 userInfo:errorDetail];
+                    NSError *error = [NSError errorWithDomain:AZDOMAIN code:AZSocketIOErrorConnection userInfo:errorDetail];
                     self.errorBlock(error);
                 }
             }
@@ -405,9 +473,37 @@
     }
 }
 
+- (void)didOpen
+{
+    self.state = AZSocketIOStateConnected;
+    self.connectionAttempts = 0;
+}
+
+- (void)didClose
+{
+    self.state = AZSocketIOStateDisconnected;
+    [self.queue setSuspended:YES];
+    if (self.disconnectedBlock) {
+        self.disconnectedBlock();
+    }
+}
+
+- (void)didFailWithError:(NSError *)error
+{
+    self.state = AZSocketIOStateDisconnected;
+    [self.queue setSuspended:YES];
+    if (![self reconnect] && self.errorBlock) {
+        self.errorBlock(error);
+    }
+}
+
+#pragma mark - Parse response
+
 - (void)didParseJSONMessage:(id)outData
 {
-    self.messageRecievedBlock(outData);
+    if (self.messageRecievedBlock) {
+        self.messageRecievedBlock(outData);
+    }
 }
 
 - (void)didParseJSONEvent:(id)outData
@@ -418,31 +514,10 @@
             block([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
         }
     } else {
-        self.eventRecievedBlock([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
+        if (self.eventRecievedBlock) {
+            self.eventRecievedBlock([outData objectForKey:@"name"], [outData objectForKey:@"args"]);
+        }
     }
 }
 
-- (void)didOpen
-{
-    self.state = az_socket_connected;
-    self.connectionAttempts = 0;
-}
-
-- (void)didClose
-{
-    self.state = az_socket_not_connected;
-    [self.queue setSuspended:YES];
-    if (self.disconnectedBlock) {
-        self.disconnectedBlock();
-    }
-}
-
-- (void)didFailWithError:(NSError *)error
-{
-    self.state = az_socket_not_connected;
-    [self.queue setSuspended:YES];
-    if (![self reconnect] && self.errorBlock) {
-        self.errorBlock(error);
-    }
-}
 @end

@@ -41,6 +41,7 @@
 		843CFAEF1625B9CB00F0F809 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 843CFAEE1625B9CB00F0F809 /* SystemConfiguration.framework */; };
 		847A4010153105760064C050 /* AZSocketIOPacket.h in Headers */ = {isa = PBXBuildFile; fileRef = 847A400E153105760064C050 /* AZSocketIOPacket.h */; };
 		847A4011153105760064C050 /* AZSocketIOPacket.m in Sources */ = {isa = PBXBuildFile; fileRef = 847A400F153105760064C050 /* AZSocketIOPacket.m */; };
+		9F125114172563B800785FDE /* AZSocketIONamespaceTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 9F125113172563B800785FDE /* AZSocketIONamespaceTests.m */; };
 		E513FA141DB74928BE0BF00C /* libPods.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 10B9BB21AD0C4B4AB360772D /* libPods.a */; };
 /* End PBXBuildFile section */
 
@@ -101,6 +102,7 @@
 		843CFAEE1625B9CB00F0F809 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
 		847A400E153105760064C050 /* AZSocketIOPacket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AZSocketIOPacket.h; sourceTree = "<group>"; };
 		847A400F153105760064C050 /* AZSocketIOPacket.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AZSocketIOPacket.m; sourceTree = "<group>"; };
+		9F125113172563B800785FDE /* AZSocketIONamespaceTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AZSocketIONamespaceTests.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -214,6 +216,7 @@
 			isa = PBXGroup;
 			children = (
 				537F4DB4152F7DB000416E3C /* AZSocketIOTests.m */,
+				9F125113172563B800785FDE /* AZSocketIONamespaceTests.m */,
 				531C5699152F2F880044884C /* Supporting Files */,
 			);
 			path = AZSocketIOTests;
@@ -442,6 +445,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				537F4DB5152F7DB000416E3C /* AZSocketIOTests.m in Sources */,
+				9F125114172563B800785FDE /* AZSocketIONamespaceTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

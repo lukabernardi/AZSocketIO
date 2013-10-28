@@ -25,6 +25,8 @@
 
 #define AZDOMAIN @"AZSocketIO"
 
+extern NSString * const AZSocketIODefaultNamespace;
+
 typedef void (^MessageRecievedBlock)(id data);
 typedef void (^EventRecievedBlock)(NSString *eventName, id data);
 typedef void (^ConnectedBlock)();
@@ -34,11 +36,20 @@ typedef void (^ErrorBlock)(NSError *error);
 typedef void (^ACKCallback)();
 typedef void (^ACKCallbackWithArgs)(NSArray *args);
 
+/** 
+ The socket state according to socket.io specs ( https://github.com/LearnBoost/socket.io-spec#anatomy-of-a-socketio-socket )
+ */
 typedef enum {
-    az_socket_connected,
-    az_socket_connecting,
-    az_socket_not_connected
+    AZSocketIOStateDisconnected,
+    AZSocketIOStateDisconnecting,
+    AZSocketIOStateConnecting,
+    AZSocketIOStateConnected,
 } AZSocketIOState;
+
+NS_ENUM(NSUInteger, AZSocketIOError) {
+    AZSocketIOErrorConnection   = 100,
+    AZSocketIOErrorArgs         = 3000,
+};
 
 /**
  `AZSocketIO` provides a mechanism for connecting to and interacting with a socket.io compliant server. It maintains the actual transport connection and provides facilities for sending all types of messages.
@@ -56,6 +67,10 @@ typedef enum {
  Determines whether AZSocketIO will use secured connections such as wss or https
  */
 @property(nonatomic, assign, readonly)BOOL secureConnections;
+/**
+ The namespace / endpoint of the socket.io server
+ */
+@property(nonatomic, copy, readonly)NSString *endpoint;
 /**
  Contains the current state of the connection.
  
@@ -95,8 +110,6 @@ typedef enum {
 /**
  Initializes an `AZSocketIO` object with the specified host and port.
  
- This is the designated initializer. It will not create a connection to the server.
- 
  @param host The hostname of socket.io server.
  @param port The port the socket.io server is running on.
  @param secureConnections Determines whether SSL encryption is used when possible
@@ -104,7 +117,19 @@ typedef enum {
  @return the initialized client
  */
 - (id)initWithHost:(NSString *)host andPort:(NSString *)port secure:(BOOL)secureConnections;
-
+/**
+ Initializes an `AZSocketIO` object with the specified host, port and namespace.
+ 
+ This is the designated initializer. It will not create a connection to the server.
+ 
+ @param host The hostname of socket.io server.
+ @param port The port the socket.io server is running on.
+ @param secureConnections Determines whether SSL encryption is used when possible
+ @param endpoint The endpoint namespace
+ 
+ @return the initialized client
+ */
+- (id)initWithHost:(NSString *)host andPort:(NSString *)port secure:(BOOL)secureConnections withNamespace:(NSString *)endpoint;
 /**
  Connects to the socket.io server.
  
@@ -230,6 +255,15 @@ typedef enum {
  @return The number of callbacks that were removed.
  */
 - (NSInteger)removeCallbacksForEvent:(NSString *)name;
+
+/**
+ Returns all the callbacks for a particular event
+ 
+ @param eventName the name of the event.
+ 
+ @return An `NSArray` containing all the callback blocks, `nil` if no callback blocks exists.
+ */
+- (NSArray *)callbacksForEvent:(NSString *)eventName;
 
 /*!
  @method setValue:forHTTPHeaderField:
