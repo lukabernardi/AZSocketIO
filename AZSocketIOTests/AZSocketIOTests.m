@@ -162,12 +162,13 @@ describe(@"The socket", ^{
         __block BOOL connected = NO;
         __block NSString *initialEvent;
         it(@"can connect again using a different transport", ^{
-            socket.transports = [NSSet setWithObject:@"xhr-polling"];
+            socket.transports = [[NSSet setWithObject:@"xhr-polling"] mutableCopy];
+            __weak AZSocketIO *weakSocket = socket;
             [socket connectWithSuccess:^{
                 connected = YES;
-                socket.eventReceivedBlock = ^(NSString *name, id _args) {
+                weakSocket.eventReceivedBlock = ^(NSString *name, id _args) {
                     initialEvent = name;
-                    socket.eventReceivedBlock = ^(NSString *name, id _args) {
+                    weakSocket.eventReceivedBlock = ^(NSString *name, id _args) {
                         received = [_args objectAtIndex:0];
                     };
                 };

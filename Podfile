@@ -1,5 +1,4 @@
-platform :ios, 5.0
-pod 'AFNetworking'
+platform :ios, 7.0
 pod 'SocketRocket'
 
 target :test, :exclusive=>true do
