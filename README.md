@@ -3,21 +3,19 @@ AZSocketIO
 AZSocketIO is a socket.io client for iOS. It:
 
 * Supports websockets and xhr-polling transports
+* Supports namespacing a socket
 * Is about alpha stage
 * Is heavily reliant on blocks for it's API
 * Has appledocs for all user facing classes
 * Welcomes patches and issues
-
-It does not currently support namespacing a socket.
 
 Dependencies
 ------------
 AZSocketIO uses cocoapods, so you shouldn't have to think too much about dependencies, but here they are.
 
 * [SocketRocket](https://github.com/square/SocketRocket)
-* [AFNetworking](https://github.com/AFNetworking/AFNetworking)
 
-AZSocketIO uses NSJSONSerialization, so it's iOS 5+.
+AZSocketIO uses NSURLSession, so it's iOS 7+.
 
 Usage
 -----
