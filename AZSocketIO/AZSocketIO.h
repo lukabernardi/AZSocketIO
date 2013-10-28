@@ -27,8 +27,8 @@
 
 extern NSString * const AZSocketIODefaultNamespace;
 
-typedef void (^MessageRecievedBlock)(id data);
-typedef void (^EventRecievedBlock)(NSString *eventName, id data);
+typedef void (^MessageReceivedBlock)(id data);
+typedef void (^EventReceivedBlock)(NSString *eventName, id data);
 typedef void (^ConnectedBlock)();
 typedef void (^DisconnectedBlock)();
 typedef void (^ErrorBlock)(NSError *error);
@@ -89,11 +89,11 @@ NS_ENUM(NSUInteger, AZSocketIOError) {
 /**
  This block will be called on the reception of any non-protocol message.
  */
-@property(nonatomic, copy)MessageRecievedBlock messageRecievedBlock;
+@property(nonatomic, copy)MessageReceivedBlock messageReceivedBlock;
 /**
  This block will be called on the reception of any event.
  */
-@property(nonatomic, copy)EventRecievedBlock eventRecievedBlock;
+@property(nonatomic, copy)EventReceivedBlock eventReceivedBlock;
 /**
  This block will be called after the instance has disconnected
  */
@@ -231,7 +231,7 @@ NS_ENUM(NSUInteger, AZSocketIOError) {
  For most users, this will be the most common way to handle messages.
  
  @param name The name of the event.
- @param block A block object that will be called when an event with this name is recieved. The block has no return value and takes two arguements: the name of the event and the arguements sent with the event.
+ @param block A block object that will be called when an event with this name is received. The block has no return value and takes two arguements: the name of the event and the arguements sent with the event.
  
  @warning A single event can have many registered callback blocks. Adding a new callback does not implicitly remove the existing callback. To remove existing callbacks, see `removeCallbackForEvent:callback:` or `removeCallbacksForEvent:`.
  */
@@ -298,8 +298,8 @@ NS_ENUM(NSUInteger, AZSocketIOError) {
 @property(nonatomic, assign)NSUInteger maxReconnectionAttempts;
 
 #pragma mark overridden setters
-- (void)setMessageRecievedBlock:(void (^)(id data))messageRecievedBlock;
-- (void)setEventRecievedBlock:(void (^)(NSString *eventName, id data))eventRecievedBlock;
+- (void)setMessageReceivedBlock:(void (^)(id data))messageReceivedBlock;
+- (void)setEventReceivedBlock:(void (^)(NSString *eventName, id data))eventReceivedBlock;
 - (void)setDisconnectedBlock:(void (^)())disconnectedBlock;
 - (void)setErrorBlock:(void (^)(NSError *error))errorBlock;
 @end

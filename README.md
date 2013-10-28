@@ -21,7 +21,7 @@ Usage
 -----
 ``` objective-c
 AZSocketIO *socket = [[AZSocketIO alloc] initWithHost:@"localhost" andPort:@"9000"];
-[socket setEventRecievedBlock:^(NSString *eventName, id data) {
+[socket setEventReceivedBlock:^(NSString *eventName, id data) {
     NSLog(@"%@ : %@", eventName, data);
 }];
 [socket connectWithSuccess:^{

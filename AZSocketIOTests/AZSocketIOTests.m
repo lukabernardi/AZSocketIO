@@ -44,7 +44,7 @@ describe(@"The socket", ^{
         it(@"can connect", ^{
             [socket connectWithSuccess:^{
                 connected = [NSNumber numberWithBool:YES];
-                socket.eventRecievedBlock = ^(NSString *name, id _args) {
+                socket.eventReceivedBlock = ^(NSString *name, id _args) {
                     args = _args;
                 };
             } andFailure:^(NSError *error) {
@@ -62,34 +62,34 @@ describe(@"The socket", ^{
     context(@"after connecting", ^{
         it(@"can send a message and recieve the return val", ^{
             __block NSString *sent = @"FOO";
-            __block NSString *recieved;
-            [socket setEventRecievedBlock:^(NSString *eventName, id data) {
-                recieved = [data objectAtIndex:0];
+            __block NSString *received;
+            [socket setEventReceivedBlock:^(NSString *eventName, id data) {
+                received = [data objectAtIndex:0];
             }];
             [socket send:sent error:nil];
-            [[expectFutureValue(recieved) shouldEventually] equal:sent];
+            [[expectFutureValue(received) shouldEventually] equal:sent];
         });
         it(@"can send a json message and recieve the return val", ^{
             __block NSDictionary *sent = [NSDictionary dictionaryWithObject:@"bar" forKey:@"foo"];;
-            __block NSDictionary *recieved;
-            [socket setEventRecievedBlock:^(NSString *eventName, id data) {
-                recieved = [data objectAtIndex:0];
+            __block NSDictionary *received;
+            [socket setEventReceivedBlock:^(NSString *eventName, id data) {
+                received = [data objectAtIndex:0];
             }];
             [socket send:sent error:nil];
-            [[expectFutureValue(recieved) shouldEventually] equal:sent];
+            [[expectFutureValue(received) shouldEventually] equal:sent];
         });
         it(@"can emit an event and recieve the return val", ^{
             __block NSString *name = @"ackLessEvent";
             __block NSArray *args = [NSArray arrayWithObject:@"bar"];
-            __block NSString *recievedName;
-            __block NSArray *recievedArgs;
+            __block NSString *receivedName;
+            __block NSArray *receivedArgs;
             [socket addCallbackForEventName:name callback:^(NSString *eventName, id data) {
-                recievedName = eventName;
-                recievedArgs = data;
+                receivedName = eventName;
+                receivedArgs = data;
             }];
             [socket emit:name args:args error:nil];
-            [[expectFutureValue(recievedName) shouldEventually] equal:name];
-            [[expectFutureValue(recievedArgs) shouldEventually] equal:args];
+            [[expectFutureValue(receivedName) shouldEventually] equal:name];
+            [[expectFutureValue(receivedArgs) shouldEventually] equal:args];
         });
         it(@"can add and retrive and event callback", ^{
             NSString *eventName = @"testEvent";
@@ -155,7 +155,7 @@ describe(@"The socket", ^{
         it(@"should say it's not connected", ^{
             [[theValue(socket.state) should] equal:@(AZSocketIOStateDisconnected)];
         });
-        __block NSString *sent = @"Hi", *recieved;
+        __block NSString *sent = @"Hi", *received;
         it(@"can still queue messages", ^{
             [[theValue([socket send:sent error:nil]) should] beFalse];
         });
@@ -166,10 +166,10 @@ describe(@"The socket", ^{
             __weak AZSocketIO *weakSocket = socket;
             [socket connectWithSuccess:^{
                 connected = YES;
-                weakSocket.eventRecievedBlock = ^(NSString *name, id _args) {
+                weakSocket.eventReceivedBlock = ^(NSString *name, id _args) {
                     initialEvent = name;
-                    weakSocket.eventRecievedBlock = ^(NSString *name, id _args) {
-                        recieved = [_args objectAtIndex:0];
+                    weakSocket.eventReceivedBlock = ^(NSString *name, id _args) {
+                        received = [_args objectAtIndex:0];
                     };
                 };
             } andFailure:^(NSError *error) {}];
@@ -177,7 +177,7 @@ describe(@"The socket", ^{
             [[expectFutureValue(initialEvent) shouldEventually] equal:@"news"];
         });
         it(@"recieves a response from the queue message", ^{
-            [[expectFutureValue(recieved) shouldEventually] equal:sent];
+            [[expectFutureValue(received) shouldEventually] equal:sent];
         });
     });
 });

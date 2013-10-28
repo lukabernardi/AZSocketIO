@@ -19,3 +19,4 @@ profile
 Pods/*
 Podfile.lock
 test-server/node_modules/*
+.idea

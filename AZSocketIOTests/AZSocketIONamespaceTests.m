@@ -35,7 +35,7 @@ describe(@"The socket", ^{
         it(@"should connect", ^{
             [socket connectWithSuccess:^{
                 connected = @(YES);
-                socket.eventRecievedBlock = ^(NSString *_name, id _args) {
+                socket.eventReceivedBlock = ^(NSString *_name, id _args) {
                     name = _name;
                 };
             } andFailure:^(NSError *error) {
@@ -57,15 +57,15 @@ describe(@"The socket", ^{
         it(@"can emit an event and recieve the return val", ^{
             __block NSString *name = @"test_event";
             __block NSArray *args = [NSArray arrayWithObject:@"bar"];
-            __block NSString *recievedName;
-            __block NSArray *recievedArgs;
+            __block NSString *receivedName;
+            __block NSArray *receivedArgs;
             [socket addCallbackForEventName:name callback:^(NSString *eventName, id data) {
-                recievedName = eventName;
-                recievedArgs = data;
+                receivedName = eventName;
+                receivedArgs = data;
             }];
             [socket emit:name args:args error:nil];
-            [[expectFutureValue(recievedName) shouldEventually] equal:name];
-            [[expectFutureValue(recievedArgs) shouldEventually] equal:args];
+            [[expectFutureValue(receivedName) shouldEventually] equal:name];
+            [[expectFutureValue(receivedArgs) shouldEventually] equal:args];
         });
     });
     

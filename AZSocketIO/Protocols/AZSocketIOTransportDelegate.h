@@ -59,7 +59,7 @@
 ///--------------------------------------------
 
 /**
- Tells the delegate that message was recieved.
+ Tells the delegate that message was received.
  
  @param message An `NSString` containing the message data.
  */

@@ -49,7 +49,7 @@
     __weak ViewController *blockSelf = self;
     self.socket = [[AZSocketIO alloc] initWithHost:@"localhost" andPort:@"9000" secure:NO];
     //socket.transports = [NSMutableSet setWithObject:@"xhr-polling"];
-    [self.socket setEventRecievedBlock:^(NSString *eventName, id data) {
+    [self.socket setEventReceivedBlock:^(NSString *eventName, id data) {
         blockSelf.name.text = eventName;
         blockSelf.args.text = [data description];
         [NSTimer scheduledTimerWithTimeInterval:1 target:blockSelf selector:@selector(sendTime) userInfo:nil repeats:NO];
