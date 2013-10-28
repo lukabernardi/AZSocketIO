@@ -19,7 +19,6 @@
 //
 
 #import "AZSocketIO.h"
-#import "AFHTTPClient.h"
 #import "AZSocketIOTransport.h"
 #import "AZWebsocketTransport.h"
 #import "AZxhrTransport.h"
@@ -36,7 +35,6 @@
 
 @property(nonatomic, strong)ConnectedBlock connectionBlock;
 
-@property(nonatomic, strong)AFHTTPClient *httpClient;
 @property(nonatomic, strong)NSDictionary *transportMap;
 
 @property(nonatomic, strong)NSMutableDictionary *ackCallbacks;
@@ -52,6 +50,8 @@
 @property(nonatomic, assign)NSInteger disconnectInterval;
 
 @property(nonatomic, assign)NSTimeInterval currentReconnectDelay;
+
+@property (nonatomic, strong) NSMutableURLRequest *connectionURLRequest;
 
 @property(nonatomic, assign, readwrite)AZSocketIOState state;
 @end
@@ -69,8 +69,12 @@
         NSString *urlString = [NSString stringWithFormat:@"%@%@:%@", protocolString,
                                self.host, self.port];
         
-        self.httpClient = [[AFHTTPClient alloc] initWithBaseURL:[NSURL URLWithString:urlString]];
-        self.ackCallbacks = [NSMutableDictionary dictionary];       
+        NSURL *baseURL = [NSURL URLWithString:urlString];
+        NSURL *connectionURL = [baseURL URLByAppendingPathComponent:[NSString stringWithFormat:@"socket.io/%@", PROTOCOL_VERSION]];
+        
+        self.connectionURLRequest = [NSMutableURLRequest requestWithURL:connectionURL cachePolicy:NSURLRequestReloadIgnoringCacheData timeoutInterval:3.0f];
+        
+        self.ackCallbacks = [NSMutableDictionary dictionary];
         self.ackCount = 0;
         self.specificEventBlocks = [NSMutableDictionary new];
         
@@ -101,30 +105,30 @@
     self.state = az_socket_connecting;
     self.connectionBlock = success;
     self.errorBlock = failure;
-    NSString *urlString = [NSString stringWithFormat:@"socket.io/%@", PROTOCOL_VERSION];
-    [self.httpClient getPath:urlString
-                  parameters:nil
-                     success:^(AFHTTPRequestOperation *operation, id responseObject) {
-                         NSString *response = [[NSString alloc] initWithData:responseObject encoding:NSUTF8StringEncoding];
-                         NSArray *msg = [response componentsSeparatedByString:@":"];
-                         if ([msg count] < 4) {
-                             NSMutableDictionary *errorDetail = [NSMutableDictionary dictionary];
-                             [errorDetail setValue:@"Server handshake message could not be decoded" forKey:NSLocalizedDescriptionKey];
-                             failure([NSError errorWithDomain:AZDOMAIN code:100 userInfo:errorDetail]);
-                             return;
-                         }
-                         self.sessionId = [msg objectAtIndex:0];
-                         self.heartbeatInterval = [[msg objectAtIndex:1] intValue];
-                         self.disconnectInterval = [[msg objectAtIndex:2] intValue];
-                         self.availableTransports = [[msg objectAtIndex:3] componentsSeparatedByString:@","];
-                         self.currentReconnectDelay = self.reconnectionDelay;
-                         [self connect];
-                     } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-                         self.state = az_socket_not_connected;
-                         if (![self reconnect]) {
-                             failure(error);
-                         }
-                     }];
+    
+    [NSURLConnection sendAsynchronousRequest:self.connectionURLRequest queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
+        if (connectionError) {
+            self.state = az_socket_not_connected;
+            if (![self reconnect]) {
+                failure(connectionError);
+            }
+            return;
+        }
+        NSString *msgString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+        NSArray *msg = [msgString componentsSeparatedByString:@":"];
+        if ([msg count] < 4) {
+            NSMutableDictionary *errorDetail = [NSMutableDictionary dictionary];
+            [errorDetail setValue:@"Server handshake message could not be decoded" forKey:NSLocalizedDescriptionKey];
+            failure([NSError errorWithDomain:AZDOMAIN code:100 userInfo:errorDetail]);
+            return;
+        }
+        self.sessionId = [msg objectAtIndex:0];
+        self.heartbeatInterval = [[msg objectAtIndex:1] intValue];
+        self.disconnectInterval = [[msg objectAtIndex:2] intValue];
+        self.availableTransports = [[msg objectAtIndex:3] componentsSeparatedByString:@","];
+        self.currentReconnectDelay = self.reconnectionDelay;
+        [self connect];
+    }];
 }
 
 - (void)connect
@@ -313,8 +317,8 @@
     return [callbacks count];
 }
 - (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
-    [self.httpClient setDefaultHeader:field value:value];
-}
+    [self.connectionURLRequest setValue:value forHTTPHeaderField:field];
+ }
 #pragma mark heartbeat
 - (void)clearHeartbeatTimeout
 {
