@@ -31,6 +31,7 @@ typedef void (^MessageReceivedBlock)(id data);
 typedef void (^EventReceivedBlock)(NSString *eventName, id data);
 typedef void (^ConnectedBlock)();
 typedef void (^DisconnectedBlock)();
+typedef void (^ReconnectingBlock)();
 typedef void (^ErrorBlock)(NSError *error);
 
 typedef void (^ACKCallback)();
@@ -98,6 +99,10 @@ NS_ENUM(NSUInteger, AZSocketIOError) {
  This block will be called after the instance has disconnected
  */
 @property(nonatomic, copy)DisconnectedBlock disconnectedBlock;
+/*
+This block will be called meanwhile the instance is reconnecting
+*/
+@property(nonatomic, copy)ReconnectingBlock reconnectingBlock;
 /**
  This block will be called when an error is reported by the socket.io server or the connection becomes unusable.
  */
@@ -301,5 +306,6 @@ NS_ENUM(NSUInteger, AZSocketIOError) {
 - (void)setMessageReceivedBlock:(void (^)(id data))messageReceivedBlock;
 - (void)setEventReceivedBlock:(void (^)(NSString *eventName, id data))eventReceivedBlock;
 - (void)setDisconnectedBlock:(void (^)())disconnectedBlock;
+- (void)setReconnectingBlock:(void (^)())reconnectingBlock;
 - (void)setErrorBlock:(void (^)(NSError *error))errorBlock;
 @end
