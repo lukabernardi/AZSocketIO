@@ -20,8 +20,7 @@
 
 #import <Foundation/Foundation.h>
 #import "AZSocketIOTransport.h"
-#import <AFNetworking.h>
 
 @interface AZxhrTransport : NSObject <AZSocketIOTransport>
-@property(nonatomic, strong)AFHTTPRequestOperationManager *client;
+
 @end

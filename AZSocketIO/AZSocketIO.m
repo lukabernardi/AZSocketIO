@@ -23,7 +23,6 @@
 #import "AZWebsocketTransport.h"
 #import "AZxhrTransport.h"
 #import "AZSocketIOPacket.h"
-#import <AFNetworking.h>
 
 #define PROTOCOL_VERSION @"1"
 
@@ -39,7 +38,6 @@ NSString * const AZSocketIODefaultNamespace = @"";
 
 @property(nonatomic, strong)ConnectedBlock connectionBlock;
 
-@property(nonatomic, strong)AFHTTPRequestOperationManager *httpClient;
 @property(nonatomic, strong)NSDictionary *transportMap;
 
 @property(nonatomic, strong)NSMutableDictionary *ackCallbacks;
@@ -59,6 +57,10 @@ NSString * const AZSocketIODefaultNamespace = @"";
 @property(nonatomic, assign, readwrite)AZSocketIOState state;
 
 @property(nonatomic, strong, readwrite)NSDictionary* handshakeData;
+
+@property (nonatomic, strong) NSString *baseURL;
+@property (nonatomic, strong) NSMutableDictionary *httpHeaderValues;
+
 @end
 
 @implementation AZSocketIO
@@ -88,13 +90,8 @@ NSString * const AZSocketIODefaultNamespace = @"";
         NSString *urlString = [NSString stringWithFormat:@"%@%@:%@", protocolString,
                                self.host, self.port];
         
-        self.httpClient = [[AFHTTPRequestOperationManager alloc] initWithBaseURL:[NSURL URLWithString:urlString]];
-//        NSMutableSet* types = [NSMutableSet setWithSet:self.httpClient.responseSerializer.acceptableContentTypes];
-//        [types addObject:@"text/plain"];
-//        self.httpClient.responseSerializer.acceptableContentTypes = types;
-        self.httpClient.requestSerializer.stringEncoding = NSUTF8StringEncoding;
-        self.httpClient.responseSerializer = [AFHTTPResponseSerializer serializer];
-        self.httpClient.responseSerializer.stringEncoding = NSUTF8StringEncoding;
+        self.baseURL = urlString;
+        self.httpHeaderValues = [NSMutableDictionary dictionary];
         
         self.ackCallbacks = [NSMutableDictionary dictionary];
         self.ackCount = 0;
@@ -148,32 +145,47 @@ NSString * const AZSocketIODefaultNamespace = @"";
     }
 
     // generate the url string
-    NSString *urlString = [NSString stringWithFormat:@"socket.io/%@%@", PROTOCOL_VERSION, query];
+    NSString *urlString = [NSString stringWithFormat:@"%@/socket.io/%@%@", self.baseURL, PROTOCOL_VERSION, query];
     
-    // perform the handshake
-    [self.httpClient GET:urlString
-                  parameters:nil
-                     success:^(AFHTTPRequestOperation *operation, id responseObject) {
-                         NSString *response = [[NSString alloc] initWithData:responseObject encoding:NSUTF8StringEncoding];
-                         NSArray *msg = [response componentsSeparatedByString:@":"];
-                         if ([msg count] < 4) {
-                             NSMutableDictionary *errorDetail = [NSMutableDictionary dictionary];
-                             [errorDetail setValue:@"Server handshake message could not be decoded" forKey:NSLocalizedDescriptionKey];
-                             failure([NSError errorWithDomain:AZDOMAIN code:AZSocketIOErrorConnection userInfo:errorDetail]);
-                             return;
-                         }
-                         self.sessionId = [msg objectAtIndex:0];
-                         self.heartbeatInterval = [[msg objectAtIndex:1] intValue];
-                         self.disconnectInterval = [[msg objectAtIndex:2] intValue];
-                         self.availableTransports = [[msg objectAtIndex:3] componentsSeparatedByString:@","];
-                         self.currentReconnectDelay = self.reconnectionDelay;
-                         [self connect];
-                     } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-                         self.state = AZSocketIOStateDisconnected;
-                         if (![self reconnect]) {
-                             failure(error);
-                         }
-                     }];
+    NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:urlString]];
+    request.HTTPMethod = @"GET";
+    [self.httpHeaderValues enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+        [request setValue:obj forHTTPHeaderField:key];
+    }];
+    
+    __weak id this = self;
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
+                                                                 completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+                                                                     
+                                                                     if (data && !error) {
+                                                                         
+                                                                         NSString *response = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+                                                                         NSArray *msg = [response componentsSeparatedByString:@":"];
+                                                                         if ([msg count] < 4) {
+                                                                             NSMutableDictionary *errorDetail = [NSMutableDictionary dictionary];
+                                                                             [errorDetail setValue:@"Server handshake message could not be decoded" forKey:NSLocalizedDescriptionKey];
+                                                                             failure([NSError errorWithDomain:AZDOMAIN code:AZSocketIOErrorConnection userInfo:errorDetail]);
+                                                                             return;
+                                                                         }
+                                                                         
+                                                                         __strong typeof(self) strongThis = this;
+                                                                         strongThis.sessionId = [msg objectAtIndex:0];
+                                                                         strongThis.heartbeatInterval = [[msg objectAtIndex:1] intValue];
+                                                                         strongThis.disconnectInterval = [[msg objectAtIndex:2] intValue];
+                                                                         strongThis.availableTransports = [[msg objectAtIndex:3] componentsSeparatedByString:@","];
+                                                                         strongThis.currentReconnectDelay = strongThis.reconnectionDelay;
+                                                                         [strongThis connect];
+                                                                     }
+                                                                     else {
+                                                                         
+                                                                         __strong typeof(self) strongThis = this;
+                                                                         strongThis.state = AZSocketIOStateDisconnected;
+                                                                         if (![strongThis reconnect]) {
+                                                                             failure(error);
+                                                                         }
+                                                                     }
+                                                                 }];
+    [task resume];
 }
 
 - (void)connect
@@ -396,7 +408,7 @@ NSString * const AZSocketIODefaultNamespace = @"";
 }
 
 - (void)setValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
-    [self.httpClient.requestSerializer setValue:value forHTTPHeaderField:field];
+    [self.httpHeaderValues setObject:field forKey:value];
 }
 
 #pragma mark heartbeat
