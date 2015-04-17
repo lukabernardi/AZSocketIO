@@ -1,8 +1,7 @@
-platform :ios, "6.0"
+platform :ios, "7.0"
 
 
 target "AZSocketIO" do
-    pod 'AFNetworking', '~> 2.x'
     pod 'SocketRocket', '~> 0.x'
 end
 
