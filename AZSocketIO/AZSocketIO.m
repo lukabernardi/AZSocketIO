@@ -223,6 +223,11 @@ NSString * const AZSocketIODefaultNamespace = @"";
             return YES;
         } else if (self.connectionAttempts < self.maxReconnectionAttempts) {
             if (self.currentReconnectDelay < self.reconnectionLimit) {
+              
+                if (self.reconnectingBlock) {
+                  self.reconnectingBlock();
+                }
+              
                 NSLog(@"Reconnecting after %f", self.currentReconnectDelay);
                 NSInvocation *connectionCallable = [NSInvocation invocationWithMethodSignature:[self methodSignatureForSelector:@selector(connectWithSuccess:andFailure:withData:)]];
                 connectionCallable.target = self;
